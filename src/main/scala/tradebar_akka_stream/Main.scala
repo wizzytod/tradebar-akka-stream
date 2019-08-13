@@ -1,11 +1,14 @@
 package tradebar_akka_stream
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.{ActorMaterializer, KillSwitches}
 import tradebar_akka_stream.domain.{Bar, Trade}
 import tradebar_akka_stream.stream.GroupTradesToBars
 
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits._
 
 
@@ -19,16 +22,21 @@ object HelloWorld {
 
   val stream = Source(ex)
 
-  val intervalSizeMs = 4
+  val intervalSizeMs = 3
 
   val groupingStage = GroupTradesToBars(intervalSizeMs, Bar.calculateStartTime(intervalSizeMs))
 
   def main(args: Array[String]): Unit = {
     println("scala collections result:")
-    println(toBars(ex, 4))
+    println(toBars(ex, intervalSizeMs))
     println("akka stream result:")
-    val future = stream.via(groupingStage).toMat(Sink.collection)(Keep.right).run()
-    future.foreach(println)
+    val future  = stream.via(groupingStage)
+      .toMat(Sink.foreach(println))(Keep.right)
+      .run()
+
+    Await.result(future, 3.second)
+    actorSystem.terminate()
+
   }
 
 
